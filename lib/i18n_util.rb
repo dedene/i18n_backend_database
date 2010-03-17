@@ -114,27 +114,32 @@ class I18nUtil
         unless needs_human_eyes?(default_locale_value)
           interpolation_arguments= default_locale_value.scan(/\{\{(.*?)\}\}/).flatten
 
-          if interpolation_arguments.empty?
-            translation.value = GoogleLanguage.translate(default_locale_value, locale.code, Locale.default_locale.code)
-            translation.save!
-          else
-            placeholder_value = 990 # at least in :es it seems to leave a 3 digit number in the postion on the string
-            placeholders = {}
-
-            # replace {{interpolation_arguments}} with a numeric place holder
-            interpolation_arguments.each do |interpolation_argument|
-              default_locale_value.gsub!("{{#{interpolation_argument}}}", "#{placeholder_value}")
-              placeholders[placeholder_value] = interpolation_argument
-              placeholder_value += 1
+          begin
+            
+            if interpolation_arguments.empty?
+              translation.value = GoogleLanguage.translate(default_locale_value, locale.code, Locale.default_locale.code)
+              translation.save!
+            else
+              placeholder_value = 990 # at least in :es it seems to leave a 3 digit number in the postion on the string
+              placeholders = {}
+            
+              # replace {{interpolation_arguments}} with a numeric place holder
+              interpolation_arguments.each do |interpolation_argument|
+                default_locale_value.gsub!("{{#{interpolation_argument}}}", "#{placeholder_value}")
+                placeholders[placeholder_value] = interpolation_argument
+                placeholder_value += 1
+              end
+            
+              # translate string
+              translated_value = GoogleLanguage.translate(default_locale_value, locale.code, Locale.default_locale.code)
+            
+              # replace numeric place holders with {{interpolation_arguments}} 
+              placeholders.each {|placeholder_value,interpolation_argument| translated_value.gsub!("#{placeholder_value}", "{{#{interpolation_argument}}}") }
+              translation.value = translated_value
+              translation.save!
             end
-
-            # translate string
-            translated_value = GoogleLanguage.translate(default_locale_value, locale.code, Locale.default_locale.code)
-
-            # replace numeric place holders with {{interpolation_arguments}} 
-            placeholders.each {|placeholder_value,interpolation_argument| translated_value.gsub!("#{placeholder_value}", "{{#{interpolation_argument}}}") }
-            translation.value = translated_value
-            translation.save!
+          rescue StandardError
+            puts "Failed to translate #{translation.inspect}"
           end
         end
       end
